@@ -3,20 +3,14 @@
 [![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://workforce-demand-planning.streamlit.app)
 [![GitHub Repository](https://img.shields.io/badge/GitHub-WorkForce-blue?logo=github)](https://github.com/Shweta-Tech-creator/WorkForce.git)
 [![Python 3.12](https://img.shields.io/badge/Python-3.12-brightgreen.svg)](https://www.python.org/)
-
-**B.Tech CSE - Semester V | Machine Learning Laboratory Project (Case Study 92)**
-
-An end-to-end Machine Learning system and interactive Streamlit dashboard to estimate future workforce requirements (**Low Demand**, **Medium Demand**, **High Demand**) across organizational departments and job roles.
-
 ---
+## 🌐 Live Application
 
-## 🌐 Live Application Link
-
-🚀 **Experience the Live Dashboard:**  
-**[https://workforce-demand-planning.streamlit.app](https://workforce-demand-planning.streamlit.app)**
-
-*(Alternative direct deployment link: `https://shweta-tech-creator-workforce.streamlit.app`)*
-
+<p align="center">
+  <a href="https://workforce-demand-planning.streamlit.app">
+    <img src="https://img.shields.io/badge/🚀%20Open%20Live%20Dashboard-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white" alt="Open Live Dashboard">
+  </a>
+</p>
 ---
 
 ## 📌 Problem Overview
