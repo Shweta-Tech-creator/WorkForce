@@ -442,10 +442,10 @@ with tab1:
         
     st.markdown("<br>", unsafe_allow_html=True)
     
-    # Visual Row 1
+    # Visual Row 1: Target Distribution & Demand by Department
     col_v1, col_v2 = st.columns(2)
     with col_v1:
-        st.markdown("##### 📈 Workforce Demand Level Distribution")
+        st.markdown("##### 📈 1. Workforce Demand Level Distribution")
         fig1, ax1 = plt.subplots(figsize=(6, 3.8))
         sns.countplot(data=filtered_df, x='Workforce_Demand', order=['Low Demand', 'Medium Demand', 'High Demand'], 
                       palette=palette_map, ax=ax1, edgecolor='#ffffff', linewidth=1.5)
@@ -461,7 +461,22 @@ with tab1:
         st.pyplot(fig1)
         
     with col_v2:
-        st.markdown("##### 🏢 Demand Level Breakdown Across Job Roles")
+        st.markdown("##### 🏛️ 2. Demand Breakdown by Department")
+        fig_dept, ax_dept = plt.subplots(figsize=(6, 3.8))
+        dept_data = df_data if selected_dept != 'All Departments' else filtered_df
+        sns.countplot(data=dept_data, x='Department', hue='Workforce_Demand', 
+                      hue_order=['Low Demand', 'Medium Demand', 'High Demand'], 
+                      palette=palette_map, ax=ax_dept, edgecolor='#ffffff', linewidth=1.2)
+        ax_dept.set_ylabel("Count", fontsize=10, fontweight='600')
+        ax_dept.set_xlabel("Department", fontsize=10, fontweight='600')
+        ax_dept.grid(axis='y', linestyle='--', alpha=0.5)
+        ax_dept.legend(title='', loc='upper right', framealpha=0.9)
+        st.pyplot(fig_dept)
+        
+    # Visual Row 2: Demand Across Job Roles & Impact of OverTime
+    col_v3, col_v4 = st.columns(2)
+    with col_v3:
+        st.markdown("##### 🏢 3. Demand Breakdown Across Job Roles")
         fig2, ax2 = plt.subplots(figsize=(6, 3.8))
         sns.countplot(data=filtered_df, y='JobRole', hue='Workforce_Demand', 
                       hue_order=['Low Demand', 'Medium Demand', 'High Demand'], 
@@ -472,10 +487,8 @@ with tab1:
         ax2.legend(title='', loc='lower right', framealpha=0.9)
         st.pyplot(fig2)
         
-    # Visual Row 2
-    col_v3, col_v4 = st.columns(2)
-    with col_v3:
-        st.markdown("##### ⏱️ Impact of OverTime on Staffing Demand")
+    with col_v4:
+        st.markdown("##### ⏱️ 4. Impact of OverTime on Staffing Demand")
         fig3, ax3 = plt.subplots(figsize=(6, 3.8))
         sns.countplot(data=filtered_df, x='OverTime', hue='Workforce_Demand', 
                       hue_order=['Low Demand', 'Medium Demand', 'High Demand'], 
@@ -486,9 +499,27 @@ with tab1:
         ax3.legend(title='', loc='upper right', framealpha=0.9)
         st.pyplot(fig3)
         
-    with col_v4:
-        st.markdown("##### 💰 Compensation (Monthly Income) Distribution")
-        fig4, ax4 = plt.subplots(figsize=(6, 3.8))
+    # Visual Row 3: Correlation Heatmap & Compensation Distribution
+    col_v5, col_v6 = st.columns(2)
+    with col_v5:
+        st.markdown("##### 🔗 5. Correlation Heatmap of Numerical Features")
+        numeric_cols = [
+            'Age', 'MonthlyIncome', 'TotalWorkingYears', 'YearsAtCompany',
+            'YearsInCurrentRole', 'YearsSinceLastPromotion', 'WorkLifeBalance',
+            'JobSatisfaction', 'PerformanceRating'
+        ]
+        valid_cols = [c for c in numeric_cols if c in filtered_df.columns]
+        corr_matrix = filtered_df[valid_cols].corr()
+        
+        fig5, ax5 = plt.subplots(figsize=(6, 4.2))
+        sns.heatmap(corr_matrix, annot=True, fmt='.2f', cmap='coolwarm', cbar=True,
+                    square=True, linewidths=0.5, annot_kws={'size': 7, 'weight': 'bold'}, ax=ax5)
+        ax5.tick_params(axis='both', which='major', labelsize=8)
+        st.pyplot(fig5)
+        
+    with col_v6:
+        st.markdown("##### 💰 6. Compensation (Monthly Income) Distribution")
+        fig4, ax4 = plt.subplots(figsize=(6, 4.2))
         sns.boxplot(data=filtered_df, x='Workforce_Demand', y='MonthlyIncome', 
                     order=['Low Demand', 'Medium Demand', 'High Demand'], 
                     palette=palette_map, ax=ax4, width=0.45, linewidth=1.5)
