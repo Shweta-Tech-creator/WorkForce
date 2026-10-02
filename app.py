@@ -295,6 +295,8 @@ def train_models(df):
     }
     
     benchmark = []
+    cms = {}
+    classes = ['High Demand', 'Low Demand', 'Medium Demand']
     for name, (model, x_eval) in models.items():
         preds = model.predict(x_eval)
         benchmark.append({
@@ -304,11 +306,23 @@ def train_models(df):
             'Recall': recall_score(y_test, preds, average='weighted', zero_division=0),
             'F1-Score': f1_score(y_test, preds, average='weighted', zero_division=0)
         })
+        cms[name] = confusion_matrix(y_test, preds, labels=classes)
         
     benchmark_df = pd.DataFrame(benchmark).sort_values(by='F1-Score', ascending=False).reset_index(drop=True)
     
     return {
         'rf_model': rf,
+        'lr_model': lr,
+        'dt_model': dt,
+        'knn_model': knn,
+        'all_models': {
+            'Random Forest': (rf, False),
+            'Logistic Regression': (lr, True),
+            'Decision Tree': (dt, False),
+            'KNN': (knn, True)
+        },
+        'scaler': scaler,
+        'cms': cms,
         'feature_columns': feature_columns,
         'cat_cols': cat_cols,
         'X_encoded': X_encoded,
@@ -569,6 +583,17 @@ with tab2:
             f_involvement = st.slider("Job Involvement Level (1 to 4)", 1, 4, 3)
             f_dist = st.slider("Commute Distance From Home (km)", 1, 30, 9)
             
+        st.markdown("##### 🤖 Choose Prediction Model")
+        f_model_opt = st.selectbox(
+            "Select Classifier for Assessment:",
+            [
+                "Random Forest (Selected Champion — 90.82% Accuracy)",
+                "Logistic Regression (Multinomial — 89.12% Accuracy)",
+                "Decision Tree (Max Depth 6 — 88.44% Accuracy)",
+                "KNN (5-Neighbors — 59.18% Accuracy)"
+            ]
+        )
+            
         submit_calc = st.form_submit_button("🚀 Compute Workforce Demand Assessment", use_container_width=True)
         
     if submit_calc:
@@ -614,17 +639,25 @@ with tab2:
                 sample_encoded[col] = 0
         sample_encoded = sample_encoded[pipeline['feature_columns']]
         
-        pred_class = pipeline['rf_model'].predict(sample_encoded)[0]
-        pred_probs = pipeline['rf_model'].predict_proba(sample_encoded)[0]
-        prob_mapping = dict(zip(pipeline['rf_model'].classes_, pred_probs))
+        # Parse selected model
+        model_name = f_model_opt.split(' (')[0]
+        chosen_model, needs_scale = pipeline['all_models'][model_name]
+        feat_input = pipeline['scaler'].transform(sample_encoded) if needs_scale else sample_encoded
+        pred_class = chosen_model.predict(feat_input)[0]
+        
+        if hasattr(chosen_model, 'predict_proba'):
+            pred_probs = chosen_model.predict_proba(feat_input)[0]
+            prob_mapping = dict(zip(chosen_model.classes_, pred_probs))
+        else:
+            prob_mapping = {c: (1.0 if c == pred_class else 0.0) for c in ['High Demand', 'Low Demand', 'Medium Demand']}
         
         st.markdown("---")
-        st.markdown("#### 📋 Assessment Results & HR Action Playbook")
+        st.markdown(f"#### 📋 Assessment Results & HR Action Playbook — *({model_name})*")
         
         c_res1, c_res2 = st.columns([1.1, 0.9])
         
         with c_res1:
-            st.markdown("**Estimated Demand Tier:**")
+            st.markdown(f"**Estimated Demand Tier ({model_name}):**")
             if pred_class == 'High Demand':
                 st.markdown('<div class="badge-high">🚨 HIGH DEMAND (Urgent Hiring & Reallocation Needed)</div>', unsafe_allow_html=True)
                 st.markdown("<br>", unsafe_allow_html=True)
@@ -653,7 +686,7 @@ with tab2:
                 """)
                 
         with c_res2:
-            st.markdown("**Model Classification Probabilities:**")
+            st.markdown(f"**Classification Probabilities ({model_name}):**")
             fig_p, ax_p = plt.subplots(figsize=(5.2, 3.2))
             prob_data = pd.DataFrame({
                 'Demand Tier': list(prob_mapping.keys()),
@@ -669,6 +702,24 @@ with tab2:
                               xy=(p.get_x() + p.get_width()/2, p.get_height() + 2),
                               ha='center', va='bottom', fontweight='bold', fontsize=9.5)
             st.pyplot(fig_p)
+
+        # Multi-model consensus comparison
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown("##### 🔍 Multi-Model Consensus (What All 4 Models Predict for this Employee)")
+        c_m1, c_m2, c_m3, c_m4 = st.columns(4)
+        c_cols = [c_m1, c_m2, c_m3, c_m4]
+        for idx, (m_lbl, (m_inst, m_sc)) in enumerate(pipeline['all_models'].items()):
+            m_inp = pipeline['scaler'].transform(sample_encoded) if m_sc else sample_encoded
+            m_p = m_inst.predict(m_inp)[0]
+            color = "#dc2626" if m_p == 'High Demand' else ("#d97706" if m_p == 'Medium Demand' else "#16a34a")
+            is_active = "border: 2px solid #2563eb; background:#eff6ff;" if m_lbl == model_name else "border: 1px solid #e2e8f0; background:#ffffff;"
+            with c_cols[idx]:
+                st.markdown(f"""
+                <div style="{is_active} border-radius:10px; padding:0.75rem 0.6rem; text-align:center;">
+                    <div style="font-size:0.75rem; color:#64748b; font-weight:700; text-transform:uppercase;">{m_lbl}</div>
+                    <div style="font-size:0.95rem; font-weight:800; color:{color}; margin-top:4px;">{m_p}</div>
+                </div>
+                """, unsafe_allow_html=True)
 
 # ==========================================
 # TAB 3: DEPARTMENTAL ROSTER & MATRIX
@@ -744,6 +795,38 @@ with tab4:
         ax_imp.set_xlabel("Gini Feature Importance", fontsize=10, fontweight='600')
         ax_imp.grid(axis='x', linestyle='--', alpha=0.5)
         st.pyplot(fig_imp)
+
+    st.markdown("---")
+    st.markdown("##### 🗂️ Interactive Confusion Matrix Inspector (All 4 Models)")
+    cm_col1, cm_col2 = st.columns([1, 1.6])
+    with cm_col1:
+        sel_cm_model = st.radio(
+            "Select Model to Inspect Confusion Matrix:",
+            ['Random Forest', 'Logistic Regression', 'Decision Tree', 'KNN'],
+            horizontal=False
+        )
+        acc_val = pipeline['benchmark_df'].loc[pipeline['benchmark_df']['Model'] == sel_cm_model, 'Accuracy'].values[0]
+        f1_val = pipeline['benchmark_df'].loc[pipeline['benchmark_df']['Model'] == sel_cm_model, 'F1-Score'].values[0]
+        st.markdown(f"""
+        <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:1rem; margin-top:0.8rem;">
+            <div style="font-size:0.85rem; color:#475569; font-weight:600;">Selected Model: <b>{sel_cm_model}</b></div>
+            <div style="font-size:0.85rem; color:#16a34a; margin-top:0.3rem;">Accuracy: <b>{acc_val*100:.2f}%</b></div>
+            <div style="font-size:0.85rem; color:#2563eb; margin-top:0.3rem;">F1-Score: <b>{f1_val*100:.2f}%</b></div>
+            <div style="font-size:0.78rem; color:#64748b; margin-top:0.5rem;">Evaluated on 294 unseen stratified test samples.</div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+    with cm_col2:
+        cm_matrix = pipeline['cms'][sel_cm_model]
+        fig_cm, ax_cm = plt.subplots(figsize=(5.5, 3.8))
+        sns.heatmap(cm_matrix, annot=True, fmt='d', cmap='Blues',
+                    xticklabels=['High Demand', 'Low Demand', 'Medium Demand'],
+                    yticklabels=['High Demand', 'Low Demand', 'Medium Demand'],
+                    cbar=False, annot_kws={'size': 11, 'weight': 'bold'}, ax=ax_cm)
+        ax_cm.set_title(f'Confusion Matrix: {sel_cm_model}', fontsize=11, fontweight='bold', pad=8)
+        ax_cm.set_xlabel("Predicted Label", fontsize=10, fontweight='600')
+        ax_cm.set_ylabel("Actual Label", fontsize=10, fontweight='600')
+        st.pyplot(fig_cm)
 
 # ---------------------------------------------------------
 # Clean Minimal Footer
